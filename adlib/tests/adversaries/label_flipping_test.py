@@ -2,25 +2,30 @@
 # Tests the label flipping implementation
 # Matthew Sedam
 
-from copy import deepcopy
-from sklearn import svm
+from adlib.adversaries.label_flipping import LabelFlipping
 from adlib.learners import SimpleLearner
-import numpy as np
-import pytest
+from adlib.utils.common import calculate_correct_percentages
 from data_reader.dataset import EmailDataset
 from data_reader.operations import load_dataset
-from adlib.adversaries.label_flipping import LabelFlipping
+from copy import deepcopy
+from sklearn import svm
+import numpy as np
+import time
 
 
 def test_label_flipping():
     print('\n#################################################################')
     print('START label flipping attack.\n')
 
+    begin = time.time()
+
     # Data processing unit
     # The path is an index of 400 testing samples(raw email data).
     dataset = EmailDataset(path='./data_reader/data/raw/trec05p-1/test-400',
                            binary=True, raw=True)
     training_data = load_dataset(dataset)
+
+    print('Training sample size: ', len(training_data), '/400\n', sep='')
 
     # Randomly cut dataset in approximately half
     rand_choices = np.random.binomial(1, 0.5, len(training_data))
@@ -43,8 +48,7 @@ def test_label_flipping():
     # Execute the attack
     cost = list(np.random.binomial(2, 0.5, len(training_data)))
     total_cost = 0.3 * len(training_data)  # flip around ~30% of the labels
-    attacker = LabelFlipping(learner, cost, total_cost, num_iterations=2,
-                             verbose=True)
+    attacker = LabelFlipping(learner, cost, total_cost, verbose=True)
     attack_data = attacker.attack(training_data)
 
     flip_vector = []  # 0 -> flipped, 1 -> not flipped
@@ -99,40 +103,11 @@ def test_label_flipping():
     print('Attack correct percentage: ', attack_precent_correct, '%')
     print('Difference: ', difference, '%')
 
+    end = time.time()
+    print('\nTotal time: ', round(begin - end, 2), 's', '\n', sep='')
+
     print('\nEND label flipping attack.')
     print('#################################################################\n')
-
-
-def calculate_correct_percentages(orig_labels, attack_labels, instances):
-    """
-    Calculates the percent of labels that were predicted correctly before and
-    after the attack.
-    :param orig_labels: the labels predicted by the pre-attack learner
-    :param attack_labels: the labels predicted by the post-attack learner
-    :param instances: the list of instances
-    :return: strings of original percent correct, attack percent correct, and
-             the difference (original - attack)
-    """
-
-    orig_count = 0
-    count = 0
-    for i in range(len(instances)):
-        if orig_labels[i] != instances[i].get_label():
-            orig_count += 1
-        elif attack_labels[i] != instances[i].get_label():
-            count += 1
-
-    orig_precent_correct = ((len(instances) - orig_count) * 100
-                            / len(instances))
-    attack_precent_correct = ((len(instances) - count) * 100
-                              / len(instances))
-    difference = orig_precent_correct - attack_precent_correct
-
-    orig_precent_correct = str(round(orig_precent_correct, 4))
-    attack_precent_correct = str(round(attack_precent_correct, 4))
-    difference = str(round(difference, 4))
-
-    return orig_precent_correct, attack_precent_correct, difference
 
 
 if __name__ == '__main__':

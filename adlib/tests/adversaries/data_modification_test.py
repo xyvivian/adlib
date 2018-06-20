@@ -6,18 +6,22 @@
 from adlib.learners import SimpleLearner
 from adlib.adversaries.datamodification.data_modification import \
     DataModification
-from adlib.tests.adversaries.label_flipping_test import \
-    calculate_correct_percentages
+from adlib.utils.common import calculate_correct_percentages
+from adlib.utils.common import get_spam_features
 from copy import deepcopy
 from data_reader.dataset import EmailDataset
 from data_reader.operations import load_dataset
 from sklearn import svm
 import numpy as np
+import time
 
 
 def test_data_modification():
-    print('\n#################################################################')
+    print()
+    print('###################################################################')
     print('START data modification attack.\n')
+
+    begin = time.time()
 
     # Data processing unit
     # The path is an index of 400 testing samples(raw email data).
@@ -27,6 +31,8 @@ def test_data_modification():
     training_data, predict_data = dataset.split({'train': 50, 'test': 50})
     training_data = load_dataset(training_data)
     predict_data = load_dataset(predict_data)
+
+    print('Training sample size: ', len(training_data), '/400\n', sep='')
 
     # Setting the default learner
     # Test simple learner svm
@@ -60,10 +66,10 @@ def test_data_modification():
 
     # Set features to recognize spam as ham
     for index in spam_features:
-        target_theta[index] = -1
+        target_theta[index] = -10
 
     for index in ham_features:
-        target_theta[index] = 0.1
+        target_theta[index] = 0.01
 
     print('Features selected: ', np.array(spam_features))
     print('Number of features: ', len(spam_features))
@@ -127,35 +133,12 @@ def test_data_modification():
           'classified as ham after the attack: ', spam_ham_count, '/',
           len(spam_instances), sep='')
 
+    end = time.time()
+    print('\nTotal time: ', round(begin - end, 2), 's', '\n', sep='')
+
     print('\nEND data modification attack.')
-    print('#################################################################\n')
-
-
-def get_spam_features(instances, p=0.9):
-    """
-    Returns a list of feature indices where the proportion of instances that
-    have them is >= p
-    :param instances: the spam instances - MUST BE SPAM (i.e. have a label of 1)
-    :param p: the proportion of instances that must have this value
-    :return: a tuple comprised of spam and ham features in separate lists
-    """
-
-    if len(instances) == 0:
-        raise ValueError('Must have at least one instance.')
-
-    spam_features = []
-    ham_features = []
-    for i in range(instances[0].get_feature_count()):
-        count = 0
-        for inst in instances:
-            count += 1 if inst.get_feature_vector().get_feature(i) > 0 else 0
-
-        if (count / len(instances)) >= p:
-            spam_features.append(i)
-        else:
-            ham_features.append(i)
-
-    return spam_features, ham_features
+    print('###################################################################')
+    print()
 
 
 if __name__ == '__main__':
